@@ -28,7 +28,7 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "react-query": "3.39.3",
-    "smol-toml": "1.4.2"
+    "smol-toml": "1.6.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
