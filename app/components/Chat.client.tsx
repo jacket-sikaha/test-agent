@@ -1,67 +1,47 @@
-// app/components/Chat.client.tsx
+// app/page.tsx（或 app/components/Chat.client.tsx）
 "use client";
 
+import { useChat } from "@ai-sdk/react"; // AI SDK 5+
 import { useState } from "react";
 
-type Message = {
-  role: "user" | "assistant";
-  content: string;
-};
-
 export default function Chat() {
+  const { messages, sendMessage, status, error } = useChat({
+    // api: "/api/chat", // 对应你的 API 路由（默认就是 /api/chat，可省略）
+  });
+
   const [input, setInput] = useState("");
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [loading, setLoading] = useState(false);
 
-  async function send() {
-    if (!input.trim()) return;
-    const userMsg = input.trim();
+  // 发送消息
+  const handleSend = () => {
+    const text = input.trim();
+    if (!text) return;
+    sendMessage({ text }); // 5+ 推荐用法
     setInput("");
-    setLoading(true);
+  };
 
-    // 乐观更新 UI
-    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
-
-    try {
-      const res = await fetch("/api/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: userMsg }),
-      });
-      const data = await res.json();
-
-      const reply: string = data?.reply ?? data?.content ?? "(无回复)";
-      setMessages((prev) => [...prev, { role: "assistant", content: reply }]);
-    } catch {
-      setMessages((prev) => [
-        ...prev,
-        { role: "assistant", content: "请求失败，请重试" },
-      ]);
-    } finally {
-      setLoading(false);
+  // 回车发送
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+      e.preventDefault();
+      handleSend();
     }
-  }
+  };
 
   return (
     <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 8,
-        maxWidth: 640,
-        margin: "0 auto",
-        paddingTop: 24,
-      }}
+      className="flex flex-col w-full h-full"
+      style={{ maxWidth: 720, margin: "0 auto", padding: 24 }}
     >
       {/* 消息列表 */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-        {messages.map((m, i) => (
+      <div className="flex-1 flex flex-col gap-4">
+        {messages.map((m) => (
           <div
-            key={i}
+            key={m.id}
             style={{
               textAlign: m.role === "user" ? "right" : "left",
             }}
           >
+            {/* 简单把 parts 转成文本；你可以按需渲染 tool-call 等类型 */}
             <span
               style={{
                 display: "inline-block",
@@ -69,25 +49,45 @@ export default function Chat() {
                 borderRadius: 6,
                 border: "1px solid #e5e7eb",
                 background: m.role === "user" ? "#eff6ff" : "#f9fafb",
+                maxWidth: "80%",
+                wordBreak: "break-word",
               }}
             >
-              {m.content}
+              {m.parts
+                ?.filter((p) => p.type === "text")
+                .map((p, i) => (
+                  <span key={i}>{p.text}</span>
+                ))}
             </span>
           </div>
         ))}
-        {loading && <div style={{ color: "#9ca3af" }}>思考中...</div>}
+
+        {status === "streaming" && (
+          <div style={{ color: "#9ca3af" }}>正在输出…</div>
+        )}
       </div>
 
+      {/* 错误提示 */}
+      {error && (
+        <div style={{ color: "#ef4444", marginTop: 6 }}>
+          出错了：{error.message ?? "未知错误"}
+        </div>
+      )}
+
       {/* 输入区 */}
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="输入你的问题…"
+          onKeyDown={handleKeyDown}
+          placeholder="问点什么…（试试：北京天气如何）"
           style={{ flex: 1, padding: 8 }}
-          disabled={loading}
+          disabled={status === "streaming"}
         />
-        <button onClick={send} disabled={loading || !input.trim()}>
+        <button
+          onClick={handleSend}
+          disabled={status === "streaming" || !input.trim()}
+        >
           发送
         </button>
       </div>
