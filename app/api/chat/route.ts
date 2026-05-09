@@ -3,12 +3,57 @@ import { createAgent, tool } from "langchain"; // ✅ 修复：createAgent 和 t
 import { ChatOpenAI } from "@langchain/openai";
 import { toBaseMessages, toUIMessageStream } from "@ai-sdk/langchain"; // LangChain 适配器
 import { z } from "zod";
+import path from "path";
+import { MultiServerMCPClient } from "@langchain/mcp-adapters";
 
 // ---------- 环境变量校验 ----------
 if (!process.env.ZHIPU_API_KEY) {
   throw new Error("Missing ZHIPU_API_KEY environment variable");
 }
 
+const client = new MultiServerMCPClient({
+  // Global tool configuration options
+  // Whether to throw on errors if a tool fails to load (optional, default: true)
+  throwOnLoadError: true,
+  // Whether to prefix tool names with the server name (optional, default: false)
+  prefixToolNameWithServerName: false,
+  // Optional additional prefix for tool names (optional, default: "")
+  additionalToolNamePrefix: "",
+
+  // Use standardized content block format in tool outputs
+  useStandardContentBlocks: true,
+
+  // Behavior when a server fails to connect: "throw" (default) or "ignore"
+  onConnectionError: "ignore",
+
+  // Server configuration
+  mcpServers: {
+    // ✅ 修复：用本地 math_server.js 代替不存在的 @modelcontextprotocol/server-math
+    math: {
+      transport: "stdio",
+      command: "node",
+      args: [path.resolve(process.cwd(), "mcp/math_server.js")], // 指向你的 math_server.js
+      restart: {
+        enabled: true,
+        maxAttempts: 3,
+        delayMs: 1000,
+      },
+    },
+
+    // ✅ 修复：给 filesystem 加上允许访问的目录
+    filesystem: {
+      transport: "stdio",
+      command: "npx",
+      args: [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        path.resolve(process.cwd(), ""), // 至少一个允许的目录，改成你需要的
+      ],
+    },
+  },
+});
+
+const mcpTools = await client.getTools();
 // ---------- 1) 天气工具 ----------
 const getWeather = tool(
   ({ city }: { city: string }) => {
@@ -41,7 +86,7 @@ const llm = new ChatOpenAI({
 // ---------- 3) Agent（会自动跑工具循环） ----------
 const agent = createAgent({
   model: llm,
-  tools: [getWeather],
+  tools: [getWeather, ...mcpTools],
   systemPrompt:
     "你是一个助手。用户问某个城市的天气时，务必使用 get_weather 工具查询后再回答；其它问题则直接回答。回答时使用中文。",
 });
