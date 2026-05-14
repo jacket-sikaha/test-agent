@@ -1,13 +1,13 @@
 // math_server.js
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 
-const server = new McpServer(
-  { name: "math-server", version: "0.1.0" },
+const server = new Server(
+  { name: "mcp-swiss", version: "0.5.8" },
   { capabilities: { tools: {} } },
 );
 

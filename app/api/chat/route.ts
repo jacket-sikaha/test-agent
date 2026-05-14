@@ -50,6 +50,34 @@ const client = new MultiServerMCPClient({
         path.resolve(process.cwd(), ""), // 至少一个允许的目录，改成你需要的
       ],
     },
+
+    // memory: {
+    //   command: "npx",
+    //   args: ["-y", "@modelcontextprotocol/server-memory"],
+    //   env: {
+    //     MEMORY_FILE_PATH: path.resolve(process.cwd(), "memory.jsonl"),
+    //   },
+    // },
+
+    weather_fastmcp: {
+      transport: "stdio",
+      args: ["-m", "weather_server.server"],
+      command: "python",
+      env: {
+        OPENWEATHERMAP_API_KEY: process.env.OPEN_WEATHER_MAP_API_KEY!,
+      },
+    },
+    // "web-search": {
+    //   command: "npx",
+    //   args: ["-y", "open-websearch"],
+    //   env: {
+    //     DEFAULT_SEARCH_ENGINE: "duckduckgo",
+    //   },
+    // },
+    // swiss: {
+    //   command: "npx",
+    //   args: ["-y", "mcp-swiss"],
+    // },
   },
 });
 
@@ -86,9 +114,9 @@ const llm = new ChatOpenAI({
 // ---------- 3) Agent（会自动跑工具循环） ----------
 const agent = createAgent({
   model: llm,
-  tools: [getWeather, ...mcpTools],
+  tools: [...mcpTools],
   systemPrompt:
-    "你是一个助手。用户问某个城市的天气时，务必使用 get_weather 工具查询后再回答；其它问题则直接回答。回答时使用中文。",
+    "你是一个助手。用户问某个城市的天气时，务必根据现有合适的工具查询后再回答；其它问题则直接回答。回答时使用中文。",
 });
 
 // ---------- 4) API 路由（流式 + UI 消息流） ----------
